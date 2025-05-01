@@ -18,10 +18,14 @@ contract HyperCore {
 
   struct Account {
     bool created;
+    uint64 perp;
     mapping(uint64 => uint64) spot;
+    mapping(address vault => L1Read.UserVaultEquity) vaultEquity;
   }
 
   mapping(address account => Account) _accounts;
+
+  mapping(address vault => uint64) _vaultEquity;
 
   constructor() {
     registerTokenInfo(
@@ -59,6 +63,28 @@ contract HyperCore {
   /// @dev account creation can be forced when there isnt a reliance on testing that workflow.
   function forceAccountCreation(address account) public {
     _accounts[account].created = true;
+  }
+
+  function forceSpot(address account, uint64 token, uint64 _wei) public {
+    forceAccountCreation(account);
+    _accounts[account].spot[token] = _wei;
+  }
+
+  function forcePerp(address account, uint64 usd) public {
+    forceAccountCreation(account);
+    _accounts[account].perp = usd;
+  }
+
+  function forceVaultEquity(address account, address vault, uint64 usd, uint64 lockedUntilTimestamp) public {
+    forceAccountCreation(account);
+
+    _vaultEquity[vault] -= _accounts[account].vaultEquity[vault].equity;
+    _vaultEquity[vault] += usd;
+
+    _accounts[account].vaultEquity[vault].equity = usd;
+    _accounts[account].vaultEquity[vault].lockedUntilTimestamp = lockedUntilTimestamp > 0
+      ? lockedUntilTimestamp
+      : uint64((block.timestamp + 3600) * 1000);
   }
 
   function tokenExists(uint64 token) private view returns (bool) {
@@ -115,13 +141,81 @@ contract HyperCore {
     }
   }
 
-  function readSpotBalance(address account, uint64 token) public view returns (L1Read.SpotBalance memory) {
-    require(tokenExists(token));
-    return L1Read.SpotBalance({ total: _accounts[account].spot[token], entryNtl: 0, hold: 0 });
+  function executeUsdClassTransfer(address sender, uint64 ntl, bool toPerp) public {
+    if (_accounts[sender].created == false) {
+      return;
+    }
+
+    if (toPerp) {
+      if (HyperCoreLib.fromPerp(ntl) <= _accounts[sender].spot[HyperCoreLib.KNOWN_TOKEN_USDC]) {
+        _accounts[sender].perp += ntl;
+        _accounts[sender].spot[HyperCoreLib.KNOWN_TOKEN_USDC] -= HyperCoreLib.fromPerp(ntl);
+      }
+    } else {
+      if (ntl <= _accounts[sender].perp) {
+        _accounts[sender].perp -= ntl;
+        _accounts[sender].spot[HyperCoreLib.KNOWN_TOKEN_USDC] += HyperCoreLib.fromPerp(ntl);
+      }
+    }
+  }
+
+  function executeVaultTransfer(address sender, address vault, bool isDeposit, uint64 usd) public {
+    if (_accounts[sender].created == false) {
+      return;
+    }
+
+    if (isDeposit) {
+      if (usd <= _accounts[sender].perp) {
+        _accounts[sender].vaultEquity[vault].equity += usd;
+        _accounts[sender].vaultEquity[vault].lockedUntilTimestamp = uint64((block.timestamp + 3600) * 1000);
+        _accounts[sender].perp -= usd;
+        _vaultEquity[vault] += usd;
+      }
+    } else {
+      L1Read.UserVaultEquity storage userVaultEquity = _accounts[sender].vaultEquity[vault];
+
+      // a zero amount means withdraw the entire amount
+      usd = usd == 0 ? userVaultEquity.equity : usd;
+
+      // the vaults have a minimum withdraw of 1 / 100,000,000
+      if (usd < _vaultEquity[vault] / 1e8) {
+        return;
+      }
+
+      if (usd <= userVaultEquity.equity && userVaultEquity.lockedUntilTimestamp / 1000 <= block.timestamp) {
+        userVaultEquity.equity -= usd;
+        _accounts[sender].perp += usd;
+      }
+    }
   }
 
   function readTokenInfo(uint32 token) public view returns (L1Read.TokenInfo memory) {
     require(tokenExists(token));
     return _tokens[token];
+  }
+
+  function readSpotBalance(address account, uint64 token) public view returns (L1Read.SpotBalance memory) {
+    require(tokenExists(token));
+    return L1Read.SpotBalance({ total: _accounts[account].spot[token], entryNtl: 0, hold: 0 });
+  }
+
+  function readWithdrawable(address account) public view returns (L1Read.Withdrawable memory) {
+    return L1Read.Withdrawable({ withdrawable: _accounts[account].perp });
+  }
+
+  function readUserVaultEquity(address user, address vault) public view returns (L1Read.UserVaultEquity memory) {
+    return _accounts[user].vaultEquity[vault];
+  }
+
+  function readDelegations(address user) public view returns (L1Read.Delegation[] memory userDelegations) {
+    // TODO
+  }
+
+  function readDelegatorSummary(address user) public view returns (L1Read.DelegatorSummary memory summary) {
+    // TODO
+  }
+
+  function readPosition(address user, uint16 perp) public view returns (L1Read.Position memory) {
+    // TODO
   }
 }

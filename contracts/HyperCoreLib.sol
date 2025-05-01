@@ -6,6 +6,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 library HyperCoreLib {
   using SafeCast for uint256;
 
+  uint64 public constant KNOWN_TOKEN_USDC = 0;
   uint64 public constant KNOWN_TOKEN_HYPE = 150;
 
   function scaleWei(uint64 _wei, int8 evmExtraWeiDecimals) internal pure returns (uint256) {
@@ -28,6 +29,14 @@ library HyperCoreLib {
       evmExtraWeiDecimals == 0 ? _wei : evmExtraWeiDecimals > 0
         ? _wei * 10 ** uint8(evmExtraWeiDecimals)
         : _wei / 10 ** uint8(-evmExtraWeiDecimals);
+  }
+
+  function toPerp(uint64 _wei) internal pure returns (uint64) {
+    return _wei / 1e2;
+  }
+
+  function fromPerp(uint64 usd) internal pure returns (uint64) {
+    return usd * 1e2;
   }
 
   function systemAddress(uint64 token) internal pure returns (address) {

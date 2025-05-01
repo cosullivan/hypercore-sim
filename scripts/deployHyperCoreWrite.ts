@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { AddressLike } from "ethers";
-import HyperCoreWriteArtifact from "../../artifacts/contracts/HyperCoreWrite.sol/HyperCoreWrite.json";
-import { HyperCoreWrite, HyperCoreWrite__factory } from "../../typechain-types";
+import HyperCoreWriteArtifact from "../artifacts/contracts/HyperCoreWrite.sol/HyperCoreWrite.json";
+import { HyperCoreWrite, HyperCoreWrite__factory } from "./typechain-types";
 import { setCode } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
 export const deployHyperCoreWrite = async (hyperCore: AddressLike) => {

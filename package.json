@@ -1,9 +1,26 @@
 {
-  "name": "hardhat-project",
+  "name": "hypercore-sim",
+  "version": "1.0.0-beta8",
+  "types": "./dist/esm/scripts/index.d.ts",
+  "module": "./dist/esm/scripts/index.js",
+  "main": "./dist/cjs/scripts/index.js",
+  "files": [
+    "contracts/*",
+    "dist/*",
+    "artifacts/contracts/*"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && npm run build:esm && npm run build:cjs",
+    "build:esm": "tsc --outDir dist/esm",
+    "build:cjs": "tsc --module commonjs --outDir dist/cjs",
+    "pub": "hardhat clean && hardhat compile && npm build && npm publish"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@openzeppelin/contracts": "^5.0.2",
     "hardhat": "^2.23.0",
+    "hardhat-contract-sizer": "^2.10.0",
     "prettier": "^3.5.3",
     "prettier-plugin-solidity": "^2.0.0"
   }

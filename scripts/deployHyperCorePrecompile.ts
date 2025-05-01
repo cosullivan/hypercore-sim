@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { AddressLike } from "ethers";
-import HyperCorePrecompilesArtifact from "../../artifacts/contracts/HyperCorePrecompiles.sol/HyperCorePrecompiles.json";
-import { HyperCorePrecompiles, HyperCorePrecompiles__factory } from "../../typechain-types";
+import HyperCorePrecompilesArtifact from "../artifacts/contracts/HyperCorePrecompiles.sol/HyperCorePrecompiles.json";
+import { HyperCorePrecompiles, HyperCorePrecompiles__factory } from "./typechain-types";
 import { setCode } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
 export const deployHyperCorePrecompile = async (hyperCore: AddressLike, precompileAddress: string) => {

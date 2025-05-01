@@ -57,6 +57,8 @@ contract HyperCoreWrite is L1Write {
   }
 
   function sendVaultTransfer(address vault, bool isDeposit, uint64 usd) external {
+    enqueueAction(abi.encodeCall(HyperCore.executeVaultTransfer, (msg.sender, vault, isDeposit, usd)), 0);
+
     emit VaultTransfer(msg.sender, vault, isDeposit, usd);
   }
 
@@ -79,6 +81,8 @@ contract HyperCoreWrite is L1Write {
   }
 
   function sendUsdClassTransfer(uint64 ntl, bool toPerp) external {
+    enqueueAction(abi.encodeCall(HyperCore.executeUsdClassTransfer, (msg.sender, ntl, toPerp)), 0);
+
     emit UsdClassTransfer(msg.sender, ntl, toPerp);
   }
 }

@@ -60,21 +60,7 @@ contract SpotERC20 {
     _balances[from] -= value;
     _balances[to] += value;
 
-    // if (to == address(uint160(address(0x2000000000000000000000000000000000000000)) + _index)) {
-    //   value = _token.evmExtraWeiDecimals == 0 ? value : _token.evmExtraWeiDecimals > 0
-    //     ? value / 10 ** uint8(_token.evmExtraWeiDecimals)
-    //     : value * 10 ** uint8(-_token.evmExtraWeiDecimals);
-
-    //   HyperCoreWrite(0x3333333333333333333333333333333333333333).tokenTransferCallback(_index, from, value);
-    // }
-
     if (to == HyperCoreLib.systemAddress(_index)) {
-      // value = _token.evmExtraWeiDecimals == 0 ? value : _token.evmExtraWeiDecimals > 0
-      //   ? value / 10 ** uint8(_token.evmExtraWeiDecimals)
-      //   : value * 10 ** uint8(-_token.evmExtraWeiDecimals);
-
-      //value = HyperCoreLib.scaleWei(value, _token.evmExtraWeiDecimals);
-
       HyperCoreWrite(0x3333333333333333333333333333333333333333).tokenTransferCallback(_index, from, value);
     }
 

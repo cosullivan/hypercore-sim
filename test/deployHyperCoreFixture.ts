@@ -1,22 +1,12 @@
-import hre, { ethers } from "hardhat";
+import hre from "hardhat";
 import { ZeroAddress } from "ethers";
-import { deployHyperCorePrecompile } from "./utils/deployHyperCorePrecompile";
-import { deployHyperCoreSystem, deployHyperCoreWrite } from "./utils";
-import { SpotERC20__factory } from "../typechain-types";
+import { SpotERC20__factory } from "../scripts/typechain-types";
+import { deployHyperCoreSim } from "../scripts";
 
 export const deployHyperCoreFixture = async () => {
   const [signer, user2, user3] = await hre.ethers.getSigners();
 
-  const hyperCoreFactory = await ethers.getContractFactory("HyperCore", signer);
-
-  const hyperCore = await hyperCoreFactory.deploy();
-  await hyperCore.waitForDeployment();
-
-  const hyperCoreWrite = await deployHyperCoreWrite(hyperCore);
-
-  const hyperCoreSystem = await deployHyperCoreSystem(hyperCoreWrite);
-
-  await deployHyperCorePrecompile(hyperCore, "0x0000000000000000000000000000000000000801");
+  const { hyperCore, hyperCoreWrite, hyperCoreSystem } = await deployHyperCoreSim();
 
   await hyperCore.registerTokenInfo(0, {
     name: "USDC",
