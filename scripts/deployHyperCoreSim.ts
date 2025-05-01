@@ -1,15 +1,10 @@
-import { ethers } from "hardhat";
 import { deployHyperCoreWrite } from "./deployHyperCoreWrite";
 import { deployHyperCoreSystem } from "./deployHyperCoreSystem";
 import { deployHyperCorePrecompile } from "./deployHyperCorePrecompile";
+import { deployHyperCore } from "./deployHyperCore";
 
 export const deployHyperCoreSim = async () => {
-  const [signer] = await ethers.getSigners();
-
-  const hyperCoreFactory = await ethers.getContractFactory("HyperCore", signer);
-
-  const hyperCore = await hyperCoreFactory.deploy();
-  await hyperCore.waitForDeployment();
+  const hyperCore = await deployHyperCore();
 
   const hyperCoreWrite = await deployHyperCoreWrite(hyperCore);
 

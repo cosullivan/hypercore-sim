@@ -1,6 +1,6 @@
 {
   "name": "hypercore-sim",
-  "version": "1.0.0-beta8",
+  "version": "1.0.1-beta7",
   "types": "./dist/esm/scripts/index.d.ts",
   "module": "./dist/esm/scripts/index.js",
   "main": "./dist/cjs/scripts/index.js",
