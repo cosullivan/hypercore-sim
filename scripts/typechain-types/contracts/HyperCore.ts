@@ -149,9 +149,12 @@ export interface HyperCoreInterface extends Interface {
       | "executeVaultTransfer"
       | "flushCWithdrawQueue"
       | "forceAccountCreation"
+      | "forceDelegation"
       | "forcePerp"
       | "forceSpot"
+      | "forceStaking"
       | "forceVaultEquity"
+      | "readDelegation"
       | "readDelegations"
       | "readDelegatorSummary"
       | "readPosition"
@@ -160,6 +163,7 @@ export interface HyperCoreInterface extends Interface {
       | "readUserVaultEquity"
       | "readWithdrawable"
       | "registerTokenInfo"
+      | "registerValidator"
   ): FunctionFragment;
 
   encodeFunctionData(
@@ -207,6 +211,10 @@ export interface HyperCoreInterface extends Interface {
     values: [AddressLike]
   ): string;
   encodeFunctionData(
+    functionFragment: "forceDelegation",
+    values: [AddressLike, AddressLike, BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "forcePerp",
     values: [AddressLike, BigNumberish]
   ): string;
@@ -215,8 +223,16 @@ export interface HyperCoreInterface extends Interface {
     values: [AddressLike, BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "forceStaking",
+    values: [AddressLike, BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "forceVaultEquity",
     values: [AddressLike, AddressLike, BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "readDelegation",
+    values: [AddressLike, AddressLike]
   ): string;
   encodeFunctionData(
     functionFragment: "readDelegations",
@@ -249,6 +265,10 @@ export interface HyperCoreInterface extends Interface {
   encodeFunctionData(
     functionFragment: "registerTokenInfo",
     values: [BigNumberish, L1Read.TokenInfoStruct]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "registerValidator",
+    values: [AddressLike]
   ): string;
 
   decodeFunctionResult(
@@ -295,10 +315,22 @@ export interface HyperCoreInterface extends Interface {
     functionFragment: "forceAccountCreation",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "forceDelegation",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "forcePerp", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "forceSpot", data: BytesLike): Result;
   decodeFunctionResult(
+    functionFragment: "forceStaking",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "forceVaultEquity",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "readDelegation",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -331,6 +363,10 @@ export interface HyperCoreInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "registerTokenInfo",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "registerValidator",
     data: BytesLike
   ): Result;
 }
@@ -460,16 +496,33 @@ export interface HyperCore extends BaseContract {
     "nonpayable"
   >;
 
+  forceDelegation: TypedContractMethod<
+    [
+      account: AddressLike,
+      validator: AddressLike,
+      amount: BigNumberish,
+      lockedUntilTimestamp: BigNumberish
+    ],
+    [void],
+    "nonpayable"
+  >;
+
   forcePerp: TypedContractMethod<
     [account: AddressLike, usd: BigNumberish],
     [void],
-    "nonpayable"
+    "payable"
   >;
 
   forceSpot: TypedContractMethod<
     [account: AddressLike, token: BigNumberish, _wei: BigNumberish],
     [void],
-    "nonpayable"
+    "payable"
+  >;
+
+  forceStaking: TypedContractMethod<
+    [account: AddressLike, _wei: BigNumberish],
+    [void],
+    "payable"
   >;
 
   forceVaultEquity: TypedContractMethod<
@@ -480,7 +533,13 @@ export interface HyperCore extends BaseContract {
       lockedUntilTimestamp: BigNumberish
     ],
     [void],
-    "nonpayable"
+    "payable"
+  >;
+
+  readDelegation: TypedContractMethod<
+    [user: AddressLike, validator: AddressLike],
+    [L1Read.DelegationStructOutput],
+    "view"
   >;
 
   readDelegations: TypedContractMethod<
@@ -527,6 +586,12 @@ export interface HyperCore extends BaseContract {
 
   registerTokenInfo: TypedContractMethod<
     [index: BigNumberish, tokenInfo: L1Read.TokenInfoStruct],
+    [void],
+    "nonpayable"
+  >;
+
+  registerValidator: TypedContractMethod<
+    [validator: AddressLike],
     [void],
     "nonpayable"
   >;
@@ -621,18 +686,37 @@ export interface HyperCore extends BaseContract {
     nameOrSignature: "forceAccountCreation"
   ): TypedContractMethod<[account: AddressLike], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "forceDelegation"
+  ): TypedContractMethod<
+    [
+      account: AddressLike,
+      validator: AddressLike,
+      amount: BigNumberish,
+      lockedUntilTimestamp: BigNumberish
+    ],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
     nameOrSignature: "forcePerp"
   ): TypedContractMethod<
     [account: AddressLike, usd: BigNumberish],
     [void],
-    "nonpayable"
+    "payable"
   >;
   getFunction(
     nameOrSignature: "forceSpot"
   ): TypedContractMethod<
     [account: AddressLike, token: BigNumberish, _wei: BigNumberish],
     [void],
-    "nonpayable"
+    "payable"
+  >;
+  getFunction(
+    nameOrSignature: "forceStaking"
+  ): TypedContractMethod<
+    [account: AddressLike, _wei: BigNumberish],
+    [void],
+    "payable"
   >;
   getFunction(
     nameOrSignature: "forceVaultEquity"
@@ -644,7 +728,14 @@ export interface HyperCore extends BaseContract {
       lockedUntilTimestamp: BigNumberish
     ],
     [void],
-    "nonpayable"
+    "payable"
+  >;
+  getFunction(
+    nameOrSignature: "readDelegation"
+  ): TypedContractMethod<
+    [user: AddressLike, validator: AddressLike],
+    [L1Read.DelegationStructOutput],
+    "view"
   >;
   getFunction(
     nameOrSignature: "readDelegations"
@@ -702,6 +793,9 @@ export interface HyperCore extends BaseContract {
     [void],
     "nonpayable"
   >;
+  getFunction(
+    nameOrSignature: "registerValidator"
+  ): TypedContractMethod<[validator: AddressLike], [void], "nonpayable">;
 
   filters: {};
 }

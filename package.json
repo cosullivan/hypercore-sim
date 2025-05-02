@@ -1,6 +1,6 @@
 {
   "name": "hypercore-sim",
-  "version": "1.0.1-beta8",
+  "version": "1.0.2-beta4",
   "types": "./dist/esm/scripts/index.d.ts",
   "module": "./dist/esm/scripts/index.js",
   "main": "./dist/cjs/scripts/index.js",
@@ -14,7 +14,7 @@
     "build": "npm run clean && npm run build:esm && npm run build:cjs",
     "build:esm": "tsc --outDir dist/esm",
     "build:cjs": "tsc --module commonjs --outDir dist/cjs",
-    "pub": "hardhat clean && hardhat compile && npm build && npm publish"
+    "pub": "hardhat clean && hardhat compile && npm run build && npm publish"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

@@ -80,6 +80,10 @@ contract HyperCore {
     _tokens[index] = tokenInfo;
   }
 
+  function registerValidator(address validator) public {
+    _validators.add(validator);
+  }
+
   function deploySpotERC20(uint64 index) external returns (SpotERC20 spot) {
     require(_tokens[index].evmContract == address(0));
 
@@ -93,17 +97,31 @@ contract HyperCore {
     _accounts[account].created = true;
   }
 
-  function forceSpot(address account, uint64 token, uint64 _wei) public {
+  function forceSpot(address account, uint64 token, uint64 _wei) public payable {
     forceAccountCreation(account);
     _accounts[account].spot[token] = _wei;
   }
 
-  function forcePerp(address account, uint64 usd) public {
+  function forcePerp(address account, uint64 usd) public payable {
     forceAccountCreation(account);
     _accounts[account].perp = usd;
   }
 
-  function forceVaultEquity(address account, address vault, uint64 usd, uint64 lockedUntilTimestamp) public {
+  function forceStaking(address account, uint64 _wei) public payable {
+    forceAccountCreation(account);
+    _accounts[account].staking = _wei;
+  }
+
+  function forceDelegation(address account, address validator, uint64 amount, uint64 lockedUntilTimestamp) public {
+    forceAccountCreation(account);
+    _accounts[account].delegations[validator] = L1Read.Delegation({
+      validator: validator,
+      amount: amount,
+      lockedUntilTimestamp: lockedUntilTimestamp
+    });
+  }
+
+  function forceVaultEquity(address account, address vault, uint64 usd, uint64 lockedUntilTimestamp) public payable {
     forceAccountCreation(account);
 
     _vaultEquity[vault] -= _accounts[account].vaultEquity[vault].equity;
@@ -294,6 +312,12 @@ contract HyperCore {
 
   function readUserVaultEquity(address user, address vault) public view returns (L1Read.UserVaultEquity memory) {
     return _accounts[user].vaultEquity[vault];
+  }
+
+  function readDelegation(address user, address validator) public view returns (L1Read.Delegation memory delegation) {
+    delegation.validator = validator;
+    delegation.amount = _accounts[user].delegations[validator].amount;
+    delegation.lockedUntilTimestamp = _accounts[user].delegations[validator].lockedUntilTimestamp;
   }
 
   function readDelegations(address user) public view returns (L1Read.Delegation[] memory userDelegations) {
