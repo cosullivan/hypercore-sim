@@ -3,6 +3,8 @@ pragma solidity ^0.8.28;
 
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { DoubleEndedQueue } from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import { SpotERC20 } from "./SpotERC20.sol";
 import { L1Read } from "./L1Read.sol";
 import { L1Write } from "./L1Write.sol";
@@ -13,19 +15,38 @@ import "hardhat/console.sol";
 contract HyperCore {
   using Address for address payable;
   using SafeCast for uint256;
+  using EnumerableSet for EnumerableSet.AddressSet;
+  using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
 
   mapping(uint64 token => L1Read.TokenInfo) _tokens;
+
+  struct WithdrawRequest {
+    uint40 lockedUntilTimestamp;
+    uint64 amount;
+  }
+
+  struct WithdrawQueue {
+    uint64 total;
+    DoubleEndedQueue.Bytes32Deque queue;
+  }
 
   struct Account {
     bool created;
     uint64 perp;
     mapping(uint64 => uint64) spot;
     mapping(address vault => L1Read.UserVaultEquity) vaultEquity;
+    uint64 staking;
+    mapping(address validator => L1Read.Delegation) delegations;
+    WithdrawQueue withdrawing;
   }
 
   mapping(address account => Account) _accounts;
 
   mapping(address vault => uint64) _vaultEquity;
+
+  EnumerableSet.AddressSet _validators;
+
+  EnumerableSet.AddressSet _stakers;
 
   constructor() {
     registerTokenInfo(
@@ -44,6 +65,13 @@ contract HyperCore {
   }
 
   receive() external payable {}
+
+  modifier whenAccountCreated(address sender) {
+    if (_accounts[sender].created == false) {
+      return;
+    }
+    _;
+  }
 
   function registerTokenInfo(uint64 index, L1Read.TokenInfo memory tokenInfo) public {
     require(bytes(_tokens[index].name).length == 0);
@@ -91,30 +119,48 @@ contract HyperCore {
     return bytes(_tokens[token].name).length > 0;
   }
 
+  /// @dev unstaking takes 7 days and after which it will automatically appear in the users
+  /// spot balance so we need to check this at the end of each operation to simulate that.
   function flushCWithdrawQueue() public {
-    // TODO
+    for (uint256 i = 0; i < _stakers.length(); i++) {
+      address user = _stakers.at(i);
+      WithdrawQueue storage withdrawQueue = _accounts[user].withdrawing;
+      while (withdrawQueue.queue.length() > 0) {
+        WithdrawRequest memory request = deserializeWithdrawRequest(withdrawQueue.queue.front());
+
+        if (request.lockedUntilTimestamp > block.timestamp) {
+          break;
+        }
+
+        withdrawQueue.queue.popFront();
+
+        withdrawQueue.total -= request.amount;
+        _accounts[user].spot[HyperCoreLib.KNOWN_TOKEN_HYPE] += request.amount;
+      }
+    }
   }
 
-  function executeTokenTransfer(address, uint64 token, address from, uint256 value) public payable {
+  function executeTokenTransfer(
+    address,
+    uint64 token,
+    address from,
+    uint256 value
+  ) public payable whenAccountCreated(from) {
     require(tokenExists(token));
-
-    if (_accounts[from].created == false) {
-      // silently fail
-      return;
-    }
-
     _accounts[from].spot[token] += HyperCoreLib.toWei(value, _tokens[token].evmExtraWeiDecimals);
   }
 
-  function executeNativeTransfer(address, address from, uint256 value) public payable {
-    if (_accounts[from].created == false) {
-      return;
-    }
+  function executeNativeTransfer(address, address from, uint256 value) public payable whenAccountCreated(from) {
     _accounts[from].spot[HyperCoreLib.KNOWN_TOKEN_HYPE] += (value / 1e10).toUint64();
   }
 
-  function executeSpot(address sender, address destination, uint64 token, uint64 _wei) public {
-    if (_accounts[sender].created == false || _wei > _accounts[sender].spot[token]) {
+  function executeSpot(
+    address sender,
+    address destination,
+    uint64 token,
+    uint64 _wei
+  ) public whenAccountCreated(sender) {
+    if (_wei > _accounts[sender].spot[token]) {
       return;
     }
 
@@ -141,11 +187,7 @@ contract HyperCore {
     }
   }
 
-  function executeUsdClassTransfer(address sender, uint64 ntl, bool toPerp) public {
-    if (_accounts[sender].created == false) {
-      return;
-    }
-
+  function executeUsdClassTransfer(address sender, uint64 ntl, bool toPerp) public whenAccountCreated(sender) {
     if (toPerp) {
       if (HyperCoreLib.fromPerp(ntl) <= _accounts[sender].spot[HyperCoreLib.KNOWN_TOKEN_USDC]) {
         _accounts[sender].perp += ntl;
@@ -159,11 +201,12 @@ contract HyperCore {
     }
   }
 
-  function executeVaultTransfer(address sender, address vault, bool isDeposit, uint64 usd) public {
-    if (_accounts[sender].created == false) {
-      return;
-    }
-
+  function executeVaultTransfer(
+    address sender,
+    address vault,
+    bool isDeposit,
+    uint64 usd
+  ) public whenAccountCreated(sender) {
     if (isDeposit) {
       if (usd <= _accounts[sender].perp) {
         _accounts[sender].vaultEquity[vault].equity += usd;
@@ -189,6 +232,52 @@ contract HyperCore {
     }
   }
 
+  function executeCDeposit(address sender, uint64 _wei) public whenAccountCreated(sender) {
+    if (_wei < _accounts[sender].spot[HyperCoreLib.KNOWN_TOKEN_HYPE]) {
+      _accounts[sender].spot[HyperCoreLib.KNOWN_TOKEN_HYPE] -= _wei;
+      _accounts[sender].staking += _wei;
+    }
+  }
+
+  function executeCWithdrawal(address sender, uint64 _wei) public whenAccountCreated(sender) {
+    if (_wei < _accounts[sender].staking) {
+      _accounts[sender].staking -= _wei;
+
+      _accounts[sender].withdrawing.total += _wei;
+      _accounts[sender].withdrawing.queue.pushBack(
+        serializeWithdrawRequest(WithdrawRequest(uint40(block.timestamp + 7 days), _wei))
+      );
+    }
+  }
+
+  function serializeWithdrawRequest(WithdrawRequest memory request) private pure returns (bytes32) {
+    return bytes32((uint256(request.amount) << 40) | uint40(request.lockedUntilTimestamp));
+  }
+
+  function deserializeWithdrawRequest(bytes32 data) private pure returns (WithdrawRequest memory request) {
+    request.lockedUntilTimestamp = uint40(uint256(data));
+    request.amount = uint64(uint256(data) >> 40);
+  }
+
+  function executeTokenDelegate(address sender, address validator, uint64 _wei, bool isUndelegate) public {
+    require(_validators.contains(validator));
+
+    if (isUndelegate) {
+      L1Read.Delegation storage delegation = _accounts[sender].delegations[validator];
+      if (_wei <= delegation.amount && block.timestamp * 1000 > delegation.lockedUntilTimestamp) {
+        _accounts[sender].staking += _wei;
+        delegation.amount -= _wei;
+      }
+    } else {
+      if (_wei <= _accounts[sender].staking) {
+        _stakers.add(sender);
+        _accounts[sender].staking -= _wei;
+        _accounts[sender].delegations[validator].amount += _wei;
+        _accounts[sender].delegations[validator].lockedUntilTimestamp = ((block.timestamp + 84600) * 1000).toUint64();
+      }
+    }
+  }
+
   function readTokenInfo(uint32 token) public view returns (L1Read.TokenInfo memory) {
     require(tokenExists(token));
     return _tokens[token];
@@ -208,11 +297,34 @@ contract HyperCore {
   }
 
   function readDelegations(address user) public view returns (L1Read.Delegation[] memory userDelegations) {
-    // TODO
+    address[] memory validators = _validators.values();
+
+    userDelegations = new L1Read.Delegation[](validators.length);
+    for (uint256 i; i < userDelegations.length; i++) {
+      userDelegations[i].validator = validators[i];
+
+      L1Read.Delegation memory delegation = _accounts[user].delegations[validators[i]];
+      userDelegations[i].amount = delegation.amount;
+      userDelegations[i].lockedUntilTimestamp = delegation.lockedUntilTimestamp;
+    }
   }
 
   function readDelegatorSummary(address user) public view returns (L1Read.DelegatorSummary memory summary) {
-    // TODO
+    address[] memory validators = _validators.values();
+
+    for (uint256 i; i < validators.length; i++) {
+      L1Read.Delegation memory delegation = _accounts[user].delegations[validators[i]];
+      summary.delegated += delegation.amount;
+    }
+
+    summary.undelegated = _accounts[user].staking;
+
+    summary.nPendingWithdrawals = _accounts[user].withdrawing.queue.length().toUint64();
+
+    for (uint256 i; i < summary.nPendingWithdrawals; i++) {
+      WithdrawRequest memory request = deserializeWithdrawRequest(_accounts[user].withdrawing.queue.at(i));
+      summary.totalPendingWithdrawal += request.amount;
+    }
   }
 
   function readPosition(address user, uint16 perp) public view returns (L1Read.Position memory) {

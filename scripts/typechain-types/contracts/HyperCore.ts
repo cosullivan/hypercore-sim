@@ -139,8 +139,11 @@ export interface HyperCoreInterface extends Interface {
   getFunction(
     nameOrSignature:
       | "deploySpotERC20"
+      | "executeCDeposit"
+      | "executeCWithdrawal"
       | "executeNativeTransfer"
       | "executeSpot"
+      | "executeTokenDelegate"
       | "executeTokenTransfer"
       | "executeUsdClassTransfer"
       | "executeVaultTransfer"
@@ -164,12 +167,24 @@ export interface HyperCoreInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "executeCDeposit",
+    values: [AddressLike, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "executeCWithdrawal",
+    values: [AddressLike, BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "executeNativeTransfer",
     values: [AddressLike, AddressLike, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "executeSpot",
     values: [AddressLike, AddressLike, BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "executeTokenDelegate",
+    values: [AddressLike, AddressLike, BigNumberish, boolean]
   ): string;
   encodeFunctionData(
     functionFragment: "executeTokenTransfer",
@@ -241,11 +256,23 @@ export interface HyperCoreInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "executeCDeposit",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "executeCWithdrawal",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "executeNativeTransfer",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
     functionFragment: "executeSpot",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "executeTokenDelegate",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -357,6 +384,18 @@ export interface HyperCore extends BaseContract {
     "nonpayable"
   >;
 
+  executeCDeposit: TypedContractMethod<
+    [sender: AddressLike, _wei: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
+  executeCWithdrawal: TypedContractMethod<
+    [sender: AddressLike, _wei: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+
   executeNativeTransfer: TypedContractMethod<
     [arg0: AddressLike, from: AddressLike, value: BigNumberish],
     [void],
@@ -369,6 +408,17 @@ export interface HyperCore extends BaseContract {
       destination: AddressLike,
       token: BigNumberish,
       _wei: BigNumberish
+    ],
+    [void],
+    "nonpayable"
+  >;
+
+  executeTokenDelegate: TypedContractMethod<
+    [
+      sender: AddressLike,
+      validator: AddressLike,
+      _wei: BigNumberish,
+      isUndelegate: boolean
     ],
     [void],
     "nonpayable"
@@ -489,6 +539,20 @@ export interface HyperCore extends BaseContract {
     nameOrSignature: "deploySpotERC20"
   ): TypedContractMethod<[index: BigNumberish], [string], "nonpayable">;
   getFunction(
+    nameOrSignature: "executeCDeposit"
+  ): TypedContractMethod<
+    [sender: AddressLike, _wei: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "executeCWithdrawal"
+  ): TypedContractMethod<
+    [sender: AddressLike, _wei: BigNumberish],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
     nameOrSignature: "executeNativeTransfer"
   ): TypedContractMethod<
     [arg0: AddressLike, from: AddressLike, value: BigNumberish],
@@ -503,6 +567,18 @@ export interface HyperCore extends BaseContract {
       destination: AddressLike,
       token: BigNumberish,
       _wei: BigNumberish
+    ],
+    [void],
+    "nonpayable"
+  >;
+  getFunction(
+    nameOrSignature: "executeTokenDelegate"
+  ): TypedContractMethod<
+    [
+      sender: AddressLike,
+      validator: AddressLike,
+      _wei: BigNumberish,
+      isUndelegate: boolean
     ],
     [void],
     "nonpayable"

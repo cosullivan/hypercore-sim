@@ -63,14 +63,20 @@ contract HyperCoreWrite is L1Write {
   }
 
   function sendTokenDelegate(address validator, uint64 _wei, bool isUndelegate) external {
+    enqueueAction(abi.encodeCall(HyperCore.executeTokenDelegate, (msg.sender, validator, _wei, isUndelegate)), 0);
+
     emit TokenDelegate(msg.sender, validator, _wei, isUndelegate);
   }
 
   function sendCDeposit(uint64 _wei) external {
+    enqueueAction(abi.encodeCall(HyperCore.executeCDeposit, (msg.sender, _wei)), 0);
+
     emit CDeposit(msg.sender, _wei);
   }
 
   function sendCWithdrawal(uint64 _wei) external {
+    enqueueAction(abi.encodeCall(HyperCore.executeCWithdrawal, (msg.sender, _wei)), 0);
+
     emit CWithdrawal(msg.sender, _wei);
   }
 
