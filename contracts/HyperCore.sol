@@ -10,8 +10,6 @@ import { L1Read } from "./L1Read.sol";
 import { L1Write } from "./L1Write.sol";
 import { HyperCoreLib } from "./HyperCoreLib.sol";
 
-import "hardhat/console.sol";
-
 contract HyperCore {
   using Address for address payable;
   using SafeCast for uint256;
@@ -21,13 +19,9 @@ contract HyperCore {
   mapping(uint64 token => L1Read.TokenInfo) _tokens;
 
   struct WithdrawRequest {
-    uint40 lockedUntilTimestamp;
+    address account;
     uint64 amount;
-  }
-
-  struct WithdrawQueue {
-    uint64 total;
-    DoubleEndedQueue.Bytes32Deque queue;
+    uint32 lockedUntilTimestamp;
   }
 
   struct Account {
@@ -37,16 +31,15 @@ contract HyperCore {
     mapping(address vault => L1Read.UserVaultEquity) vaultEquity;
     uint64 staking;
     mapping(address validator => L1Read.Delegation) delegations;
-    WithdrawQueue withdrawing;
   }
 
   mapping(address account => Account) _accounts;
 
   mapping(address vault => uint64) _vaultEquity;
 
-  EnumerableSet.AddressSet _validators;
+  DoubleEndedQueue.Bytes32Deque _withdrawQueue;
 
-  EnumerableSet.AddressSet _stakers;
+  EnumerableSet.AddressSet _validators;
 
   constructor() {
     registerTokenInfo(
@@ -140,21 +133,16 @@ contract HyperCore {
   /// @dev unstaking takes 7 days and after which it will automatically appear in the users
   /// spot balance so we need to check this at the end of each operation to simulate that.
   function flushCWithdrawQueue() public {
-    for (uint256 i = 0; i < _stakers.length(); i++) {
-      address user = _stakers.at(i);
-      WithdrawQueue storage withdrawQueue = _accounts[user].withdrawing;
-      while (withdrawQueue.queue.length() > 0) {
-        WithdrawRequest memory request = deserializeWithdrawRequest(withdrawQueue.queue.front());
+    while (_withdrawQueue.length() > 0) {
+      WithdrawRequest memory request = deserializeWithdrawRequest(_withdrawQueue.front());
 
-        if (request.lockedUntilTimestamp > block.timestamp) {
-          break;
-        }
-
-        withdrawQueue.queue.popFront();
-
-        withdrawQueue.total -= request.amount;
-        _accounts[user].spot[HyperCoreLib.KNOWN_TOKEN_HYPE] += request.amount;
+      if (request.lockedUntilTimestamp > block.timestamp) {
+        break;
       }
+
+      _withdrawQueue.popFront();
+
+      _accounts[request.account].spot[HyperCoreLib.KNOWN_TOKEN_HYPE] += request.amount;
     }
   }
 
@@ -251,30 +239,39 @@ contract HyperCore {
   }
 
   function executeCDeposit(address sender, uint64 _wei) public whenAccountCreated(sender) {
-    if (_wei < _accounts[sender].spot[HyperCoreLib.KNOWN_TOKEN_HYPE]) {
+    if (_wei <= _accounts[sender].spot[HyperCoreLib.KNOWN_TOKEN_HYPE]) {
       _accounts[sender].spot[HyperCoreLib.KNOWN_TOKEN_HYPE] -= _wei;
       _accounts[sender].staking += _wei;
     }
   }
 
   function executeCWithdrawal(address sender, uint64 _wei) public whenAccountCreated(sender) {
-    if (_wei < _accounts[sender].staking) {
+    if (_wei <= _accounts[sender].staking) {
       _accounts[sender].staking -= _wei;
 
-      _accounts[sender].withdrawing.total += _wei;
-      _accounts[sender].withdrawing.queue.pushBack(
-        serializeWithdrawRequest(WithdrawRequest(uint40(block.timestamp + 7 days), _wei))
-      );
+      WithdrawRequest memory withrawRequest = WithdrawRequest({
+        account: sender,
+        amount: _wei,
+        lockedUntilTimestamp: uint32(block.timestamp + 7 days)
+      });
+
+      _withdrawQueue.pushBack(serializeWithdrawRequest(withrawRequest));
     }
   }
 
-  function serializeWithdrawRequest(WithdrawRequest memory request) private pure returns (bytes32) {
-    return bytes32((uint256(request.amount) << 40) | uint40(request.lockedUntilTimestamp));
+  function serializeWithdrawRequest(WithdrawRequest memory request) public pure returns (bytes32) {
+    return
+      bytes32(
+        (uint256(uint160(request.account)) << 96) |
+          (uint256(request.amount) << 32) |
+          uint40(request.lockedUntilTimestamp)
+      );
   }
 
-  function deserializeWithdrawRequest(bytes32 data) private pure returns (WithdrawRequest memory request) {
-    request.lockedUntilTimestamp = uint40(uint256(data));
-    request.amount = uint64(uint256(data) >> 40);
+  function deserializeWithdrawRequest(bytes32 data) public pure returns (WithdrawRequest memory request) {
+    request.account = address(uint160(uint256(data) >> 96));
+    request.amount = uint64(uint256(data) >> 32);
+    request.lockedUntilTimestamp = uint32(uint256(data));
   }
 
   function executeTokenDelegate(address sender, address validator, uint64 _wei, bool isUndelegate) public {
@@ -288,7 +285,6 @@ contract HyperCore {
       }
     } else {
       if (_wei <= _accounts[sender].staking) {
-        _stakers.add(sender);
         _accounts[sender].staking -= _wei;
         _accounts[sender].delegations[validator].amount += _wei;
         _accounts[sender].delegations[validator].lockedUntilTimestamp = ((block.timestamp + 84600) * 1000).toUint64();
@@ -343,11 +339,12 @@ contract HyperCore {
 
     summary.undelegated = _accounts[user].staking;
 
-    summary.nPendingWithdrawals = _accounts[user].withdrawing.queue.length().toUint64();
-
-    for (uint256 i; i < summary.nPendingWithdrawals; i++) {
-      WithdrawRequest memory request = deserializeWithdrawRequest(_accounts[user].withdrawing.queue.at(i));
-      summary.totalPendingWithdrawal += request.amount;
+    for (uint256 i; i < _withdrawQueue.length(); i++) {
+      WithdrawRequest memory request = deserializeWithdrawRequest(_withdrawQueue.at(i));
+      if (request.account == user) {
+        summary.nPendingWithdrawals++;
+        summary.totalPendingWithdrawal += request.amount;
+      }
     }
   }
 

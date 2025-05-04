@@ -1,6 +1,6 @@
 {
   "name": "hypercore-sim",
-  "version": "1.0.2-beta4",
+  "version": "1.0.3",
   "types": "./dist/esm/scripts/index.d.ts",
   "module": "./dist/esm/scripts/index.js",
   "main": "./dist/cjs/scripts/index.js",
@@ -14,6 +14,7 @@
     "build": "npm run clean && npm run build:esm && npm run build:cjs",
     "build:esm": "tsc --outDir dist/esm",
     "build:cjs": "tsc --module commonjs --outDir dist/cjs",
+    "solhint": "solhint './contracts/*.sol'",
     "pub": "hardhat clean && hardhat compile && npm run build && npm publish"
   },
   "devDependencies": {
@@ -22,6 +23,7 @@
     "hardhat": "^2.23.0",
     "hardhat-contract-sizer": "^2.10.0",
     "prettier": "^3.5.3",
-    "prettier-plugin-solidity": "^2.0.0"
+    "prettier-plugin-solidity": "^2.0.0",
+    "solhint": "^5.0.5"
   }
 }

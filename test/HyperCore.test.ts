@@ -168,6 +168,24 @@ describe("HyperCore <> HyperEVM", function () {
     });
   });
 
+  describe("serialization", function () {
+    it("can serialize and deserialize a withdraw request", async function () {
+      const { hyperCore } = await loadFixture(deployHyperCoreFixture);
+
+      const bytes = await hyperCore.serializeWithdrawRequest({
+        account: "0x0000000000000000000000000000000000001234",
+        amount: 123456789,
+        lockedUntilTimestamp: 987654321,
+      });
+
+      const request = await hyperCore.deserializeWithdrawRequest(bytes);
+
+      expect(request.account).eq("0x0000000000000000000000000000000000001234");
+      expect(request.amount).eq(123456789);
+      expect(request.lockedUntilTimestamp).eq(987654321);
+    });
+  });
+
   describe("equity", function () {
     it("succeeds when transferring into vault equity", async function () {
       const { users, hyperCore, hyperCoreWrite } = await loadFixture(deployHyperCoreFixture);

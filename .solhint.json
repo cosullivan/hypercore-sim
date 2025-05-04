@@ -1,0 +1,10 @@
+{
+  "extends": "solhint:recommended",
+  "rules": {
+    "max-line-length": ["off"],
+    "immutable-vars-naming": ["off"],
+    "func-visibility": ["warn", { "ignoreConstructors": true }],
+    "gas-custom-errors": ["off"],
+    "one-contract-per-file": ["off"]
+  }
+}

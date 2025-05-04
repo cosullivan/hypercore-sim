@@ -21,6 +21,20 @@ import type {
   TypedContractMethod,
 } from "../common";
 
+export declare namespace HyperCore {
+  export type WithdrawRequestStruct = {
+    account: AddressLike;
+    amount: BigNumberish;
+    lockedUntilTimestamp: BigNumberish;
+  };
+
+  export type WithdrawRequestStructOutput = [
+    account: string,
+    amount: bigint,
+    lockedUntilTimestamp: bigint
+  ] & { account: string; amount: bigint; lockedUntilTimestamp: bigint };
+}
+
 export declare namespace L1Read {
   export type DelegationStruct = {
     validator: AddressLike;
@@ -139,6 +153,7 @@ export interface HyperCoreInterface extends Interface {
   getFunction(
     nameOrSignature:
       | "deploySpotERC20"
+      | "deserializeWithdrawRequest"
       | "executeCDeposit"
       | "executeCWithdrawal"
       | "executeNativeTransfer"
@@ -164,11 +179,16 @@ export interface HyperCoreInterface extends Interface {
       | "readWithdrawable"
       | "registerTokenInfo"
       | "registerValidator"
+      | "serializeWithdrawRequest"
   ): FunctionFragment;
 
   encodeFunctionData(
     functionFragment: "deploySpotERC20",
     values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "deserializeWithdrawRequest",
+    values: [BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "executeCDeposit",
@@ -270,9 +290,17 @@ export interface HyperCoreInterface extends Interface {
     functionFragment: "registerValidator",
     values: [AddressLike]
   ): string;
+  encodeFunctionData(
+    functionFragment: "serializeWithdrawRequest",
+    values: [HyperCore.WithdrawRequestStruct]
+  ): string;
 
   decodeFunctionResult(
     functionFragment: "deploySpotERC20",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "deserializeWithdrawRequest",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -369,6 +397,10 @@ export interface HyperCoreInterface extends Interface {
     functionFragment: "registerValidator",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "serializeWithdrawRequest",
+    data: BytesLike
+  ): Result;
 }
 
 export interface HyperCore extends BaseContract {
@@ -418,6 +450,12 @@ export interface HyperCore extends BaseContract {
     [index: BigNumberish],
     [string],
     "nonpayable"
+  >;
+
+  deserializeWithdrawRequest: TypedContractMethod<
+    [data: BytesLike],
+    [HyperCore.WithdrawRequestStructOutput],
+    "view"
   >;
 
   executeCDeposit: TypedContractMethod<
@@ -596,6 +634,12 @@ export interface HyperCore extends BaseContract {
     "nonpayable"
   >;
 
+  serializeWithdrawRequest: TypedContractMethod<
+    [request: HyperCore.WithdrawRequestStruct],
+    [string],
+    "view"
+  >;
+
   getFunction<T extends ContractMethod = ContractMethod>(
     key: string | FunctionFragment
   ): T;
@@ -603,6 +647,13 @@ export interface HyperCore extends BaseContract {
   getFunction(
     nameOrSignature: "deploySpotERC20"
   ): TypedContractMethod<[index: BigNumberish], [string], "nonpayable">;
+  getFunction(
+    nameOrSignature: "deserializeWithdrawRequest"
+  ): TypedContractMethod<
+    [data: BytesLike],
+    [HyperCore.WithdrawRequestStructOutput],
+    "view"
+  >;
   getFunction(
     nameOrSignature: "executeCDeposit"
   ): TypedContractMethod<
@@ -796,6 +847,13 @@ export interface HyperCore extends BaseContract {
   getFunction(
     nameOrSignature: "registerValidator"
   ): TypedContractMethod<[validator: AddressLike], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "serializeWithdrawRequest"
+  ): TypedContractMethod<
+    [request: HyperCore.WithdrawRequestStruct],
+    [string],
+    "view"
+  >;
 
   filters: {};
 }
